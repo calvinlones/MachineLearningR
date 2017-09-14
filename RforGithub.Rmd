@@ -1,0 +1,201 @@
+# Calvin Lones
+```{r}
+#1st Data set
+d1=read.table("student-mat.csv",sep=";",header=TRUE)
+#d2=read.table("student-por.csv",sep=";",header=TRUE)
+#d3=merge(d1,d2,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+print(nrow(d1)) # 382 students
+summary(d1)
+names(d1)
+head(d1)
+mean(d1$studytime)
+mean(d1$failures)
+cor(d1$failures, d1$studytime)
+plot(d1$failures, d1$studytime, xlab = "Number of Failures", ylab = "Study Time", main= "Study Time vs Failures", pch=20, col="blue")
+hist(d1$studytime)
+
+#2nd Data set
+mydata <- read.csv("HR_comma_sep.csv")
+summary(mydata) #check out the summary of the data set
+names(mydata) #look at the names of the data set
+str(mydata)
+head(mydata[,"promotion_last_5years"]) #focus on promotion_last_5years
+tail(mydata[,"promotion_last_5years"])
+head(mydata[,"salary"])
+tail(mydata[,"salary"])
+head(mydata[,"number_project"])
+tail(mydata[,"number_project"])
+sum(mydata$salary == 'high') #total number of employee's salary are high
+sum(mydata$salary == 'high')/nrow(mydata) #percentage
+cor(mydata$number_project, mydata$promotion_last_5years)#this value shows the number of project have done by the employee did not increase their chance to have promotion
+salary <- factor(mydata$salary)
+plot(factor(salary), mydata$number_project)
+hist(mydata$number_project)
+
+
+#3rd Data set
+college <- read.csv("College.csv")
+summary(college)
+head(college)
+names(college)
+str(college)
+cor(college$Outstate, college$Grad.Rate)
+hist(college$Grad.Rate)
+plot(college$Outstate, college$Grad.Rate, xlab = "Out of State Students", ylab = "Graduation Rate", main= "Graduation Rate vs Out of State Students", pch=20, col="blue")
+```
+
+```{r}
+library(tree)
+library(ISLR)
+d1=read.table("student-mat.csv",sep=";",header=TRUE)
+#d2=read.table("student-por.csv",sep=";",header=TRUE)
+#d3=merge(d1,d2,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+print(nrow(d1)) # 382 students
+summary(d1)
+names(d1)
+head(d1)
+```
+
+
+```{r}
+#split into test and train using 2017 seed
+set.seed(2017)
+i <- sample(1:nrow(d1), nrow(d1)*0.8, replace=FALSE )
+d1.train <- d1[i,]
+d1.test <- d1[-i,]
+#decision tree model
+d1.tree <- tree(d1.train$internet~., d1.train)
+summary(d1.tree)
+d1.pred <- predict(d1.tree, d1.test, type="class")
+table("predicted"=d1.pred,"actual"=d1.test$internet)
+mean(d1.pred==d1.test$internet)
+#display decision tree model
+plot(d1.tree)
+text(d1.tree, cex=0.5, pretty=0)
+d1.tree
+```
+
+```{r}
+#cross validation
+d1.cv = cv.tree(d1.tree, FUN=prune.misclass)
+d1.cv
+d1.prune = prune.misclass(d1.tree, best=9)
+plot(d1.prune)
+text(d1.prune, pretty=0)
+```
+
+```{r}
+#predict pruned tree
+d1.treepred = predict(d1.prune, d1.test, type="class")
+table(d1.treepred, d1.test$internet)
+mean(d1.treepred==d1.test$internet)
+```
+
+
+```{r}
+#Build a Naïve Bayes model 
+library(e1071)        # for naiveBayes()
+nbd1 <- naiveBayes(d1.train$internet~., data=d1.train)
+nbd1_pred <- predict(nbd1, d1.test[,-1])    # predict party (col 1)
+t.d1<-table(nbd1_pred, d1.test$internet)
+t.d1
+print(paste("Mean Accuracy is = ", mean(nbd1_pred==d1.test$internet)))
+```
+
+```{r}
+#Create Logistic Regression Model
+glmd1 = glm(internet~., data=d1.train, family=binomial)
+summary(glmd1)
+probsd1 <- predict(glmd1, newdata=d1.test, type="response")
+predglm <- ifelse(probsd1>0.5, "Yes", "No")
+table(predglm, d1.test$internet)
+acc = (1+60)/(1+60+4+14)
+acc
+```
+
+```{r}
+###################
+#linear regression
+###################
+
+#use only four variables in this data set
+a<-read.csv("college.csv")
+myvaribales<-c("Apps","Accept","Enroll","Top10perc","Top25perc","F.Undergrad","P.Undergrad","Outstate","Room.Board","Books","Personal","PhD","Terminal","S.F.Ratio","perc.alumni","Expend","Grad.Rate")
+a.subset <- a[myvaribales]
+#names(a.subset)
+#summary(a.subset)
+#create test and train
+set.seed(1234)
+i<-sample(1:nrow(a.subset), 0.75*nrow(a.subset), replace=FALSE)
+train.a<-a.subset[i,]
+test.a<-a.subset[-i,]
+#names(test.a)
+#run linear regression to find the correlation for grad.rate
+lm1<-lm(train.a$Grad.Rate~., data = train.a)
+predlm1<-predict(lm1, newdata = test.a)
+cor(predlm1, test.a$Grad.Rate)
+MSE.lm1 <- sum((predlm1-test.a$Grad.Rate)^2)/nrow(test.a)
+MSE.lm1
+```
+
+```{r}
+###########################
+#
+#using knn regression to find the correlation for grad.rate
+#scale and unscale
+#
+###########################
+#the cofrrelation with unscale data is not good
+#names(train.a)
+library(caret)
+knnreg<-knnreg(train.a[,1:16], train.a[,17], k=5)
+predknnreg<- predict(knnreg, test.a[,1:16])
+cor(predknnreg, test.a$Grad.Rate)
+#scale the data and try again
+scale.a <-data.frame(scale(a[myvaribales]))
+train.scale <-scale.a[-i,]
+test.scale <-scale.a[i,]
+knnreg.scale <- knnreg(train.scale[,1:16], train.scale[,17], k=5)
+predknnreg.scale <- predict(knnreg.scale, test.scale[,1:16])
+cor(predknnreg.scale, test.scale$Grad.Rate)
+#the correlation increase from 43% to 55%, but still worse than linear regression
+
+```
+
+```{r}
+#################
+#
+#using nerual network 
+#normalized data
+#
+#################
+library(neuralnet)
+maxs <- apply(a.subset,2, max)
+mins <- apply(a.subset,2, min)
+scale.nn <- as.data.frame(scale(a.subset, center = mins, scale = maxs-mins))
+train.nn <-scale.nn[-i,]
+test.nn <- scale.nn[i,]
+nn1 <- neuralnet(train.nn$Grad.Rate~ + train.nn$Apps + train.nn$Accept + train.nn$Enroll + train.nn$Top10perc + train.nn$Top25perc + train.nn$F.Undergrad + train.nn$P.Undergrad + train.nn$Outstate + train.nn$Room.Board + train.nn$Books + train.nn$Personal + train.nn$PhD + train.nn$Terminal + train.nn$S.F.Ratio + train.nn$perc.alumni + train.nn$Expend, data = train.nn)
+results <- compute(nn1, test.nn[1:16])
+pred.nn <- results$net.result
+cor(pred.nn, test.nn$Grad.Rate)
+```
+```{r}
+plot(nn1)
+```
+```{r}
+nn2 <- neuralnet(train.nn$Grad.Rate~ + train.nn$Apps + train.nn$Accept + train.nn$Enroll + train.nn$Top10perc + train.nn$Top25perc + train.nn$F.Undergrad + train.nn$P.Undergrad + train.nn$Outstate + train.nn$Room.Board + train.nn$Books + train.nn$Personal + train.nn$PhD + train.nn$Terminal + train.nn$S.F.Ratio + train.nn$perc.alumni + train.nn$Expend, data = train.nn, hidden = c(1,1))
+results2 <- compute(nn2, test.nn[1:16])
+pred.nn2 <- results2$net.result
+cor(pred.nn2, test.nn$Grad.Rate)
+plot(nn2)
+```
+
+
+
+
+
+
+
+
+
